@@ -1,0 +1,112 @@
+services:
+  backend_app:
+    build:
+      context: backend/
+      dockerfile: Dockerfile
+    container_name: backend_app
+    command: ["./start.sh"]
+    restart: always
+    ports:
+      - "8080:8080"
+    env_file:
+      - .env
+    volumes:
+      - ./backend/:/code
+    networks:
+      - app_network
+    depends_on:
+      - postgres
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "2g"
+        max-file: "3"
+
+  frontend_app:
+    build:
+      context: frontend/
+      dockerfile: Dockerfile
+    container_name: frontend_app
+    restart: always
+    ports:
+      - "5173:5173"
+    volumes:
+      - ./frontend:/code
+    networks:
+      - app_network
+    depends_on:
+      - backend_app
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "2g"
+        max-file: "3"
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: postgres
+    # command: ["postgres", "-c", "hba_file=/var/lib/postgresql/pg_hba.conf"]
+    restart: always
+    env_file:
+      - .env
+    ports:
+      - "5555:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./mywells.sql:/./mywells.sql
+      - ./myfact.sql:/./myfact.sql
+      - ./myplans.sql:/./myplans.sql
+      # - ./pg_hba.conf:/var/lib/postgresql/pg_hba.conf
+    networks:
+      - app_network
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "1g"
+        max-file: "1"
+
+  nginx:
+    image: nginx:latest
+    container_name: nginx
+    restart: unless-stopped
+    command: "/bin/sh -c 'while :; do sleep 6h & wait $${!}; nginx -s reload; done & nginx -g \"daemon off;\"'"
+    volumes:
+      - ./data/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./data/certbot/conf:/etc/letsencrypt
+      - ./data/certbot/www:/var/www/certbot
+      - ./frontend/dist:/usr/share/nginx/html
+    ports:
+      - "80:80"
+      - "443:443"
+    depends_on:
+      - backend_app
+    networks:
+      - app_network
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "1g"
+        max-file: "2"
+
+  certbot:
+    image: certbot/certbot
+    restart: unless-stopped
+    volumes:
+      - ./data/certbot/conf:/etc/letsencrypt
+      - ./data/certbot/www:/var/www/certbot
+    entrypoint: "/bin/sh -c 'trap exit TERM; while :; do certbot renew; sleep 12h & wait $${!}; done;'"
+    networks:
+      - app_network
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "1g"
+        max-file: "1"
+
+volumes:
+  postgres_data:
+  ..:
+
+networks:
+  app_network:
+    driver: bridge

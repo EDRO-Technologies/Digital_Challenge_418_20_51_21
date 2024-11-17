@@ -1,0 +1,20 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@font-face {
+	font-family: "SF Pro Medium";
+	src: url("../fonts/SFProText-Medium.ttf") format("truetype");
+}
+
+* {
+	padding: 0px;
+	margin: 0px;
+	border: none;
+}
+
+body {
+	font-family: "SF Pro Medium";
+	background-color: #ffffff;
+	overflow: hidden;
+}
